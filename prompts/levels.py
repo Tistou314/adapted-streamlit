@@ -1,0 +1,16 @@
+LEVEL_CONTEXTS: dict[str, str] = {
+    "CP": "L'élève est en CP (6-7 ans). Utilise un vocabulaire très simple, des phrases très courtes (5-8 mots), beaucoup d'appui visuel. Les consignes doivent être compréhensibles à l'oral. L'élève commence tout juste l'apprentissage de la lecture.",
+    "CE1": "L'élève est en CE1 (7-8 ans). Vocabulaire simple, phrases courtes (8-12 mots). L'élève commence à lire de façon autonome mais la lecture reste un effort.",
+    "CE2": "L'élève est en CE2 (8-9 ans). L'élève lit de façon autonome. Phrases de longueur moyenne. Vocabulaire courant avec introduction progressive de termes techniques simples.",
+    "CM1": "L'élève est en CM1 (9-10 ans). L'élève maîtrise la lecture. Introduction de vocabulaire disciplinaire. Phrases de complexité moyenne. Capacité à suivre des consignes en plusieurs étapes.",
+    "CM2": "L'élève est en CM2 (10-11 ans). Bon niveau de lecture. Vocabulaire disciplinaire attendu. Capacité à produire des réponses rédigées de plusieurs phrases. Début d'autonomie dans l'organisation du travail.",
+    "SIXIEME": "L'élève est en 6ème (11-12 ans). Transition primaire/collège. Vocabulaire disciplinaire plus exigeant. Capacité de rédaction structurée attendue. L'élève doit gérer plusieurs matières et enseignants.",
+    "CINQUIEME": "L'élève est en 5ème (12-13 ans). Vocabulaire technique disciplinaire courant. Rédaction structurée avec argumentation simple. Capacité d'analyse attendue.",
+    "QUATRIEME": "L'élève est en 4ème (13-14 ans). Niveau de langue soutenu attendu. Argumentation, analyse critique. Vocabulaire technique avancé.",
+    "TROISIEME": "L'élève est en 3ème (14-15 ans). Préparation au brevet. Rédaction longue, argumentation structurée, analyse de documents, synthèse. Vocabulaire riche et technique.",
+    "SECONDE": "L'élève est en Seconde (15-16 ans). Niveau lycée. Exigence de rédaction élevée, pensée critique, analyse de documents complexes.",
+    "PREMIERE": "L'élève est en Première (16-17 ans). Spécialités. Haut niveau d'exigence disciplinaire. Préparation aux épreuves du bac.",
+    "TERMINALE": "L'élève est en Terminale (17-18 ans). Préparation bac. Niveau d'exigence maximal du secondaire. Rédaction longue, argumentation complexe, synthèse.",
+    "POST_BAC": "L'élève est en post-bac (18+ ans). Niveau universitaire ou BTS/DUT. Autonomie élevée attendue. Vocabulaire spécialisé.",
+    "OTHER": "Niveau scolaire non précisé. Adapte le vocabulaire et la complexité des consignes en analysant le contenu fourni pour estimer le niveau approprié.",
+}
