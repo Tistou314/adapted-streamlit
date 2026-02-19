@@ -146,13 +146,22 @@ with st.sidebar:
     st.caption("Adaptation de contenu pédagogique")
     st.divider()
 
-    # API Key
-    api_key = st.text_input(
-        "Clé API Anthropic",
-        type="password",
-        value=os.environ.get("ANTHROPIC_API_KEY", ""),
-        help="Votre clé API Anthropic (sk-ant-...). Peut aussi être définie via la variable d'environnement ANTHROPIC_API_KEY.",
-    )
+    # API Key: secrets > env var > manual input
+    _default_key = ""
+    try:
+        _default_key = st.secrets["ANTHROPIC_API_KEY"]
+    except (KeyError, FileNotFoundError):
+        _default_key = os.environ.get("ANTHROPIC_API_KEY", "")
+
+    if _default_key:
+        api_key = _default_key
+        st.success("Clé API configurée ✓")
+    else:
+        api_key = st.text_input(
+            "Clé API Anthropic",
+            type="password",
+            help="Votre clé API Anthropic (sk-ant-...).",
+        )
 
     st.divider()
 
