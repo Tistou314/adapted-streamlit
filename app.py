@@ -141,6 +141,52 @@ st.set_page_config(
     layout="wide",
 )
 
+# Override English UI text with French
+st.markdown("""
+<style>
+    /* "Browse files" → "Parcourir" */
+    [data-testid="stFileUploaderDropzone"] button {
+        visibility: hidden;
+        position: relative;
+    }
+    [data-testid="stFileUploaderDropzone"] button::after {
+        content: "Parcourir";
+        visibility: visible;
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    /* "Drag and drop file(s) here" → French */
+    [data-testid="stFileUploaderDropzoneInstructions"] div:first-child span {
+        visibility: hidden;
+        position: relative;
+        display: inline-block;
+    }
+    [data-testid="stFileUploaderDropzoneInstructions"] div:first-child span::after {
+        content: "Glissez-déposez vos fichiers ici";
+        visibility: visible;
+        position: absolute;
+        left: 0;
+        white-space: nowrap;
+    }
+    /* "Limit 200MB per file" → French */
+    [data-testid="stFileUploaderDropzoneInstructions"] div:nth-child(2) span {
+        visibility: hidden;
+        position: relative;
+        display: inline-block;
+    }
+    [data-testid="stFileUploaderDropzoneInstructions"] div:nth-child(2) span::after {
+        content: "Limite : 200 Mo par fichier";
+        visibility: visible;
+        position: absolute;
+        left: 0;
+        white-space: nowrap;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 # ---------------------------------------------------------------------------
 # Session state init
 # ---------------------------------------------------------------------------
