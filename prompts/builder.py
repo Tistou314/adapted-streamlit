@@ -14,11 +14,25 @@ CONTENT_TYPE_LABELS: dict[str, str] = {
 }
 
 
+FIGURE_PRESERVE_INSTRUCTION = """## Figures et images originales
+
+Le document original contient des figures/images identifiées par des marqueurs {{FIGURE_ORIGINALE_N}}.
+Tu DOIS :
+1. **Conserver ces marqueurs EXACTEMENT tels quels** dans ta sortie (ex: {{FIGURE_ORIGINALE_1}}, {{FIGURE_ORIGINALE_2}}, etc.)
+2. **NE PAS les supprimer**, les renommer, les renuméroter ou les déplacer
+3. **NE PAS générer de figures SVG, Mermaid ou TikZ** pour remplacer ces images — les images originales seront automatiquement réinsérées
+4. Placer chaque marqueur à l'endroit logique dans le texte adapté (même position relative que dans l'original)
+5. Tu peux ajouter une brève description textuelle AVANT le marqueur si le profil de l'élève le nécessite (ex: "La figure ci-dessous montre...")
+
+Les images originales seront automatiquement réinsérées à la place de ces marqueurs dans le document final."""
+
+
 def build_system_prompt(
     profile_type: str,
     content_type: str,
     level: str | None = None,
     custom_description: str | None = None,
+    figure_mode: str = "generate",
 ) -> str:
     parts: list[str] = [BASE_SYSTEM_PROMPT]
 
@@ -39,6 +53,9 @@ def build_system_prompt(
         parts.append(
             f"## Contexte du type de contenu\n{CONTENT_TYPE_CONTEXTS[content_type]}"
         )
+
+    if figure_mode == "preserve":
+        parts.append(FIGURE_PRESERVE_INSTRUCTION)
 
     return "\n\n---\n\n".join(parts)
 

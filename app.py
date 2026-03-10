@@ -13,6 +13,13 @@ import streamlit as st
 
 from prompts.builder import build_system_prompt, build_user_prompt
 from visuals import prepare_image_for_api, preprocess_visual_blocks, process_visual_content
+from document import (
+    extract_docx_content,
+    extract_pdf_content,
+    build_marked_text,
+    rebuild_docx,
+    rebuild_html_with_images,
+)
 
 # ---------------------------------------------------------------------------
 # Constants (ported from constants.ts)
@@ -100,6 +107,12 @@ ADAPTED_CSS = """
         max-width: 100%;
         height: auto;
     }
+    .adapted-content .original-figure img {
+        max-width: 100%;
+        height: auto;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+    }
     .adapted-content hr { border: none; border-top: 2px solid #e2e8f0; margin: 1.5em 0; }
     .adapted-content ul, .adapted-content ol { padding-left: 1.5em; }
     .adapted-content li { margin-bottom: 0.3em; }
@@ -136,6 +149,10 @@ if "results" not in st.session_state:
     st.session_state.results = {}
 if "generating" not in st.session_state:
     st.session_state.generating = False
+if "document_blocks" not in st.session_state:
+    st.session_state.document_blocks = None
+if "input_mode" not in st.session_state:
+    st.session_state.input_mode = "text_input"
 
 # ---------------------------------------------------------------------------
 # Sidebar
@@ -225,22 +242,78 @@ with st.sidebar:
     )
 
 # ---------------------------------------------------------------------------
-# Main area
+# Main area — Input mode selection
 # ---------------------------------------------------------------------------
 
 st.header("Contenu à adapter")
 
-original_content = st.text_area(
-    "Collez ici le contenu pédagogique original",
-    height=250,
-    placeholder="Collez ici un exercice, une évaluation, une leçon, un texte...\n\nMinimum 10 caractères.",
+input_mode = st.radio(
+    "Mode de saisie",
+    ["text_input", "file_upload"],
+    format_func=lambda m: {
+        "text_input": "📝 Texte (coller + photos optionnelles)",
+        "file_upload": "📄 Fichier Word ou PDF",
+    }[m],
+    horizontal=True,
 )
 
-uploaded_images = st.file_uploader(
-    "Images (optionnel) — photos d'exercices, pages scannées...",
-    accept_multiple_files=True,
-    type=["png", "jpg", "jpeg", "gif", "webp"],
-)
+original_content = ""
+uploaded_images = None
+document_blocks = None
+figure_mode = "generate"
+
+if input_mode == "text_input":
+    # --- Text + photos mode (original flow) ---
+    original_content = st.text_area(
+        "Collez ici le contenu pédagogique original",
+        height=250,
+        placeholder="Collez ici un exercice, une évaluation, une leçon, un texte...\n\nMinimum 10 caractères.",
+    )
+
+    uploaded_images = st.file_uploader(
+        "Images (optionnel) — photos d'exercices, pages scannées...",
+        accept_multiple_files=True,
+        type=["png", "jpg", "jpeg", "gif", "webp"],
+    )
+    figure_mode = "generate"
+
+else:
+    # --- File upload mode (new flow) ---
+    uploaded_file = st.file_uploader(
+        "Fichier Word (.docx) ou PDF (.pdf)",
+        accept_multiple_files=False,
+        type=["docx", "pdf"],
+    )
+
+    if uploaded_file:
+        file_bytes = uploaded_file.read()
+        try:
+            if uploaded_file.name.lower().endswith(".docx"):
+                document_blocks = extract_docx_content(file_bytes)
+            elif uploaded_file.name.lower().endswith(".pdf"):
+                document_blocks = extract_pdf_content(file_bytes)
+
+            if document_blocks:
+                st.session_state.document_blocks = document_blocks
+
+                text_count = sum(1 for b in document_blocks if b.type == "text")
+                image_count = sum(1 for b in document_blocks if b.type == "image")
+                st.success(f"Extraction réussie : {text_count} bloc(s) de texte, {image_count} image(s) détectée(s)")
+
+                with st.expander("Aperçu du contenu extrait"):
+                    for block in document_blocks:
+                        if block.type == "text":
+                            preview = block.text[:300] + ("..." if len(block.text) > 300 else "")
+                            st.text(preview)
+                        else:
+                            st.image(block.image_bytes, caption=f"Image {block.image_index + 1}", width=300)
+
+                original_content = build_marked_text(document_blocks)
+                figure_mode = "preserve"
+            else:
+                st.warning("Aucun contenu extrait du fichier.")
+        except Exception as e:
+            st.error(f"Erreur lors de l'extraction : {e}")
 
 # ---------------------------------------------------------------------------
 # Generation
@@ -257,10 +330,12 @@ def generate_one(
     images: list[dict],
     model: str,
     custom_description: str | None,
+    figure_mode: str = "generate",
 ) -> dict:
     """Generate adaptation for a single profile. Runs in a thread."""
     system_prompt = build_system_prompt(
-        profile_type, content_type, level, custom_description
+        profile_type, content_type, level, custom_description,
+        figure_mode=figure_mode,
     )
     user_prompt = build_user_prompt(original_content, content_type, level, subject)
 
@@ -329,7 +404,9 @@ if generate_clicked:
     errors = []
     if not api_key:
         errors.append("Veuillez saisir votre clé API Anthropic dans la barre latérale.")
-    if not original_content or len(original_content.strip()) < 10:
+    if input_mode == "file_upload" and not document_blocks:
+        errors.append("Veuillez uploader un fichier Word ou PDF valide.")
+    elif not original_content or len(original_content.strip()) < 10:
         errors.append("Le contenu doit faire au moins 10 caractères.")
     if len(original_content or "") > 50000:
         errors.append("Le contenu ne doit pas dépasser 50 000 caractères.")
@@ -342,10 +419,11 @@ if generate_clicked:
     else:
         st.session_state.generating = True
         st.session_state.results = {}
+        st.session_state.input_mode = input_mode
 
-        # Prepare images
+        # Prepare images (only for text+photo mode)
         prepared_images: list[dict] = []
-        if uploaded_images:
+        if input_mode == "text_input" and uploaded_images:
             for f in uploaded_images:
                 prepared = prepare_image_for_api(f.read(), f.type)
                 prepared_images.append(prepared)
@@ -372,6 +450,7 @@ if generate_clicked:
                     prepared_images,
                     model_choice,
                     custom_description,
+                    figure_mode,
                 ): profile
                 for profile in selected_profiles
             }
@@ -408,6 +487,18 @@ if st.session_state.results:
     st.divider()
     st.header("Résultats")
 
+    # Retrieve document blocks for post-processing
+    doc_blocks = st.session_state.document_blocks
+    is_file_mode = st.session_state.input_mode == "file_upload" and doc_blocks
+
+    # Post-process results if in file mode (replace markers with images)
+    if is_file_mode:
+        image_blocks = [b for b in doc_blocks if b.type == "image"]
+        for key, result in st.session_state.results.items():
+            if "error" not in result and image_blocks:
+                result["html"] = rebuild_html_with_images(result["html"], image_blocks)
+                result["docx_bytes"] = rebuild_docx(doc_blocks, result["markdown"])
+
     # Build tabs
     results = st.session_state.results
     profile_keys = list(results.keys())
@@ -440,7 +531,8 @@ if st.session_state.results:
 
             # Export buttons
             st.divider()
-            col_dl1, col_dl2, col_dl3 = st.columns(3)
+            has_docx = "docx_bytes" in result
+            export_cols = st.columns(3 if has_docx else 2)
 
             # Download complete HTML
             export_html = f"""<!DOCTYPE html>
@@ -460,7 +552,7 @@ if st.session_state.results:
 </body>
 </html>"""
 
-            with col_dl1:
+            with export_cols[0]:
                 st.download_button(
                     "📥 Exporter HTML",
                     data=export_html,
@@ -469,7 +561,7 @@ if st.session_state.results:
                     use_container_width=True,
                 )
 
-            with col_dl2:
+            with export_cols[1]:
                 st.download_button(
                     "📝 Exporter Markdown",
                     data=result["markdown"],
@@ -477,6 +569,16 @@ if st.session_state.results:
                     mime="text/markdown",
                     use_container_width=True,
                 )
+
+            if has_docx:
+                with export_cols[2]:
+                    st.download_button(
+                        "📄 Exporter Word",
+                        data=result["docx_bytes"],
+                        file_name=f"adapted_{profile_key.lower()}.docx",
+                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                        use_container_width=True,
+                    )
 
             # Show raw markdown in expander
             with st.expander("Voir le Markdown brut"):
